@@ -123,14 +123,11 @@ def _resolve_call(
         return _unique_target(by_qualified_name.get(call, []))
 
     same_file = [
-        fn for fn in by_name.get(call, [])
-        if fn.file == caller.file
-    ]
+    fn for fn in by_name.get(call, [])
+    if fn.file == caller.file
+]
 
-    if same_file:
-        return _unique_target(same_file)
-
-    return _unique_target(by_name.get(call, []))
+    return _unique_target(same_file)
 
 
 def build_call_graph(

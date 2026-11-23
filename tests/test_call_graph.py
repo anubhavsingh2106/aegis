@@ -296,3 +296,31 @@ def checkout():
     )
 
     assert graph.has_edge(checkout.id, calculate.id)
+
+
+def test_does_not_resolve_unimported_function_from_another_file():
+    payment = parse_python_source(
+        """
+def calculate():
+    return 100
+""",
+        "payment.py",
+    )
+
+    checkout = parse_python_source(
+        """
+def checkout():
+    return calculate()
+""",
+        "checkout.py",
+    )
+
+    functions = payment + checkout
+    graph = build_call_graph(functions)
+
+    checkout_fn = next(
+        fn for fn in checkout
+        if fn.name == "checkout"
+    )
+
+    assert graph.out_degree(checkout_fn.id) == 0
