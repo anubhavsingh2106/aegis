@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Testing and linting
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Generated Aegis reports
+aegis-report.json
+aegis-approval.json
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
