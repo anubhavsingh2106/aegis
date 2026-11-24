@@ -324,3 +324,51 @@ def checkout():
     )
 
     assert graph.out_degree(checkout_fn.id) == 0
+
+
+def test_resolves_methods_to_their_own_class():
+    source = """
+class Cart:
+    def calculate(self):
+        return 100
+
+    def checkout(self):
+        return self.calculate()
+
+
+class Tax:
+    def calculate(self):
+        return 20
+
+    def apply(self):
+        return self.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    cart_calculate = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.calculate"
+    )
+
+    cart_checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.checkout"
+    )
+
+    tax_calculate = next(
+        fn for fn in functions
+        if fn.qualified_name == "Tax.calculate"
+    )
+
+    tax_apply = next(
+        fn for fn in functions
+        if fn.qualified_name == "Tax.apply"
+    )
+
+    assert graph.has_edge(cart_checkout.id, cart_calculate.id)
+    assert graph.has_edge(tax_apply.id, tax_calculate.id)
+
+    assert not graph.has_edge(cart_checkout.id, tax_calculate.id)
+    assert not graph.has_edge(tax_apply.id, cart_calculate.id)
