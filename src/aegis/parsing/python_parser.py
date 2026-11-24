@@ -194,6 +194,46 @@ def parse_python_module(
         file,
     )
 
+    class_hierarchy = {}
+
+    def collect_classes(node):
+        if node.type == "class_definition":
+            name_node = node.child_by_field_name("name")
+            name = text_of(name_node, encoded) if name_node else "<class>"
+
+            bases_node = node.child_by_field_name("superclasses")
+            bases = []
+
+            if bases_node is not None:
+                for child in bases_node.named_children:
+                    base_name = get_call_name(child, encoded)
+
+                    if base_name:
+                        bases.append(base_name)
+
+            class_hierarchy[name] = bases
+
+        for child in node.children:
+            collect_classes(child)
+
+    collect_classes(tree.root_node)
+
+    def get_class_mro(class_name, visited=None):
+        if visited is None:
+            visited = set()
+
+        result = []
+
+        for base in class_hierarchy.get(class_name, []):
+            if base in visited:
+                continue
+
+            visited.add(base)
+            result.append(base)
+            result.extend(get_class_mro(base, visited))
+
+        return result
+
     def visit(node, scope=(), class_bases=()):
         if node.type == "class_definition":
             name_node = node.child_by_field_name("name")
@@ -245,6 +285,7 @@ def parse_python_module(
                     source=text_of(node, encoded),
                     imports=module_imports.copy(),
                     class_bases=list(class_bases),
+                    class_mro=get_class_mro(scope[-1]) if scope else [],
                 )
             )
 

@@ -439,3 +439,68 @@ class Cart(Base):
         checkout.id,
         calculate_methods["Base.calculate"].id,
     )
+
+
+def test_resolves_multi_level_inherited_method_call():
+    source = """
+class Entity:
+    def calculate(self):
+        return 100
+
+
+class BaseCart(Entity):
+    pass
+
+
+class Cart(BaseCart):
+    def checkout(self):
+        return self.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    calculate = next(
+        fn for fn in functions
+        if fn.qualified_name == "Entity.calculate"
+    )
+
+    checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.checkout"
+    )
+
+    assert graph.has_edge(checkout.id, calculate.id)
+
+
+def test_does_not_resolve_method_from_unrelated_class():
+    source = """
+class Base:
+    def calculate(self):
+        return 100
+
+
+class Unrelated:
+    def calculate(self):
+        return 200
+
+
+class Cart:
+    def checkout(self):
+        return self.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.checkout"
+    )
+
+    unrelated = next(
+        fn for fn in functions
+        if fn.qualified_name == "Unrelated.calculate"
+    )
+
+    assert not graph.has_edge(checkout.id, unrelated.id)

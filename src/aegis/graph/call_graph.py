@@ -82,6 +82,8 @@ def _resolve_imported_call(
     )
 
 
+
+
 def _resolve_call(
     caller,
     call,
@@ -109,7 +111,7 @@ def _resolve_call(
             class_name = parts[-2]
             method_name = call.split(".", 1)[1]
 
-            # First, check whether the method exists in the same class.
+            # First, check the current class.
             candidates = [
                 fn
                 for fn in by_qualified_name.get(
@@ -123,10 +125,8 @@ def _resolve_call(
             if direct_target is not None:
                 return direct_target
 
-            # If not found, check the single parent class.
-            if len(caller.class_bases) == 1:
-                base_class = caller.class_bases[0]
-
+            # Then check ancestors in inheritance order.
+            for base_class in caller.class_mro:
                 candidates = [
                     fn
                     for fn in by_qualified_name.get(
@@ -135,7 +135,10 @@ def _resolve_call(
                     if fn.file == caller.file
                 ]
 
-                return _unique_target(candidates)
+                target = _unique_target(candidates)
+
+                if target is not None:
+                    return target
 
         return None
 
@@ -145,7 +148,7 @@ def _resolve_call(
             by_qualified_name.get(call, [])
         )
 
-    # Resolve ordinary function calls within the same file.
+    # Resolve ordinary functions within the same file.
     same_file = [
         fn
         for fn in by_name.get(call, [])
