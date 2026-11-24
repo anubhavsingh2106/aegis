@@ -504,3 +504,46 @@ class Cart:
     )
 
     assert not graph.has_edge(checkout.id, unrelated.id)
+
+
+def test_resolves_method_using_python_mro():
+    source = """
+class A:
+    def calculate(self):
+        return 100
+
+
+class B(A):
+    pass
+
+
+class C(A):
+    def calculate(self):
+        return 200
+
+
+class D(B, C):
+    def checkout(self):
+        return self.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "D.checkout"
+    )
+
+    calculate_c = next(
+        fn for fn in functions
+        if fn.qualified_name == "C.calculate"
+    )
+
+    calculate_a = next(
+        fn for fn in functions
+        if fn.qualified_name == "A.calculate"
+    )
+
+    assert graph.has_edge(checkout.id, calculate_c.id)
+    assert not graph.has_edge(checkout.id, calculate_a.id)

@@ -218,21 +218,85 @@ def parse_python_module(
 
     collect_classes(tree.root_node)
 
-    def get_class_mro(class_name, visited=None):
-        if visited is None:
-            visited = set()
+    
+    def c3_merge(sequences):
+        sequences = [
+            list(sequence)
+            for sequence in sequences
+            if sequence
+        ]
 
         result = []
 
-        for base in class_hierarchy.get(class_name, []):
-            if base in visited:
-                continue
+        while sequences:
+            candidate = None
 
-            visited.add(base)
-            result.append(base)
-            result.extend(get_class_mro(base, visited))
+            for sequence in sequences:
+                head = sequence[0]
+
+                if not any(
+                    head in other[1:]
+                    for other in sequences
+                ):
+                    candidate = head
+                    break
+
+            if candidate is None:
+                return None
+
+            result.append(candidate)
+
+            updated = []
+
+            for sequence in sequences:
+                if sequence and sequence[0] == candidate:
+                    sequence.pop(0)
+
+                if sequence:
+                    updated.append(sequence)
+
+            sequences = updated
 
         return result
+
+    mro_cache = {}
+
+    def get_class_mro(class_name, active=None):
+        if class_name in mro_cache:
+            return mro_cache[class_name].copy()
+
+        if active is None:
+            active = set()
+
+        if class_name in active:
+            return None
+
+        active = active | {class_name}
+        bases = class_hierarchy.get(class_name, [])
+
+        parent_mros = []
+
+        for base in bases:
+            if base in class_hierarchy:
+                parent_mro = get_class_mro(base, active)
+
+                if parent_mro is None:
+                    return None
+
+                parent_mros.append([base, *parent_mro])
+            else:
+                parent_mros.append([base])
+
+        sequences = parent_mros + [list(bases)]
+
+        merged = c3_merge(sequences)
+
+        if merged is None:
+            return None
+
+        mro_cache[class_name] = merged
+
+        return merged.copy()
 
     def visit(node, scope=(), class_bases=()):
         if node.type == "class_definition":
@@ -285,7 +349,7 @@ def parse_python_module(
                     source=text_of(node, encoded),
                     imports=module_imports.copy(),
                     class_bases=list(class_bases),
-                    class_mro=get_class_mro(scope[-1]) if scope else [],
+                    class_mro=(get_class_mro(scope[-1]) or []) if scope else [],
                 )
             )
 
