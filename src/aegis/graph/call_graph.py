@@ -92,6 +92,7 @@ def _resolve_call(
 ):
     alias = call.split(".", 1)[0]
 
+    # Resolve imported function or module calls.
     if alias in caller.imports:
         return _resolve_imported_call(
             caller,
@@ -100,6 +101,7 @@ def _resolve_call(
             module_imports_by_name,
         )
 
+    # Resolve self.method() and cls.method() calls.
     if call.startswith(("self.", "cls.")):
         parts = caller.qualified_name.split(".")
 
@@ -107,6 +109,7 @@ def _resolve_call(
             class_name = parts[-2]
             method_name = call.split(".", 1)[1]
 
+            # First, check whether the method exists in the same class.
             candidates = [
                 fn
                 for fn in by_qualified_name.get(
@@ -115,17 +118,39 @@ def _resolve_call(
                 if fn.file == caller.file
             ]
 
-            return _unique_target(candidates)
+            direct_target = _unique_target(candidates)
+
+            if direct_target is not None:
+                return direct_target
+
+            # If not found, check the single parent class.
+            if len(caller.class_bases) == 1:
+                base_class = caller.class_bases[0]
+
+                candidates = [
+                    fn
+                    for fn in by_qualified_name.get(
+                        f"{base_class}.{method_name}", []
+                    )
+                    if fn.file == caller.file
+                ]
+
+                return _unique_target(candidates)
 
         return None
 
+    # Resolve explicitly qualified calls.
     if "." in call:
-        return _unique_target(by_qualified_name.get(call, []))
+        return _unique_target(
+            by_qualified_name.get(call, [])
+        )
 
+    # Resolve ordinary function calls within the same file.
     same_file = [
-    fn for fn in by_name.get(call, [])
-    if fn.file == caller.file
-]
+        fn
+        for fn in by_name.get(call, [])
+        if fn.file == caller.file
+    ]
 
     return _unique_target(same_file)
 

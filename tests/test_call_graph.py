@@ -372,3 +372,70 @@ class Tax:
 
     assert not graph.has_edge(cart_checkout.id, tax_calculate.id)
     assert not graph.has_edge(tax_apply.id, cart_calculate.id)
+
+
+def test_resolves_inherited_method_call():
+    source = """
+class Base:
+    def calculate(self):
+        return 100
+
+
+class Cart(Base):
+    def checkout(self):
+        return self.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    calculate = next(
+        fn for fn in functions
+        if fn.qualified_name == "Base.calculate"
+    )
+
+    checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.checkout"
+    )
+
+    assert graph.has_edge(checkout.id, calculate.id)
+
+def test_child_method_overrides_parent_method():
+    source = """
+class Base:
+    def calculate(self):
+        return 100
+
+
+class Cart(Base):
+    def calculate(self):
+        return 200
+
+    def checkout(self):
+        return self.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    calculate_methods = {
+        fn.qualified_name: fn
+        for fn in functions
+        if fn.name == "calculate"
+    }
+
+    checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.checkout"
+    )
+
+    assert graph.has_edge(
+        checkout.id,
+        calculate_methods["Cart.calculate"].id,
+    )
+
+    assert not graph.has_edge(
+        checkout.id,
+        calculate_methods["Base.calculate"].id,
+    )

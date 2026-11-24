@@ -62,10 +62,7 @@ def find_calls(node, source: bytes) -> set[str]:
     return calls
 
 
-def resolve_relative_module(
-    module: str,
-    file: str,
-) -> str:
+def resolve_relative_module(module: str, file: str) -> str:
     """Resolve a relative import using the importing file's path."""
 
     level = len(module) - len(module.lstrip("."))
@@ -185,7 +182,7 @@ def parse_python_module(
     source: str,
     file: str,
 ) -> tuple[list[FunctionSymbol], dict[str, str]]:
-    """Parse a Python module and retain its module-level imports."""
+    """Parse a Python module and retain its imports and class inheritance."""
 
     encoded = source.encode("utf-8")
     tree = PARSER.parse(encoded)
@@ -197,7 +194,7 @@ def parse_python_module(
         file,
     )
 
-    def visit(node, scope=()):
+    def visit(node, scope=(), class_bases=()):
         if node.type == "class_definition":
             name_node = node.child_by_field_name("name")
 
@@ -207,8 +204,18 @@ def parse_python_module(
                 else "<class>"
             )
 
+            bases_node = node.child_by_field_name("superclasses")
+            bases = []
+
+            if bases_node is not None:
+                for child in bases_node.named_children:
+                    base_name = get_call_name(child, encoded)
+
+                    if base_name:
+                        bases.append(base_name)
+
             for child in node.children:
-                visit(child, (*scope, name))
+                visit(child, (*scope, name), tuple(bases))
 
             return
 
@@ -237,16 +244,17 @@ def parse_python_module(
                     calls=sorted(find_calls(body, encoded)),
                     source=text_of(node, encoded),
                     imports=module_imports.copy(),
+                    class_bases=list(class_bases),
                 )
             )
 
             for child in node.children:
-                visit(child, (*scope, name))
+                visit(child, (*scope, name), class_bases)
 
             return
 
         for child in node.children:
-            visit(child, scope)
+            visit(child, scope, class_bases)
 
     visit(tree.root_node)
 

@@ -1,4 +1,3 @@
-
 from dataclasses import asdict, dataclass, field
 
 
@@ -13,6 +12,7 @@ class FunctionSymbol:
     calls: list[str]
     source: str
     imports: dict[str, str] = field(default_factory=dict)
+    class_bases: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
