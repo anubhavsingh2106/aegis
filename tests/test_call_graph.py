@@ -547,3 +547,31 @@ class D(B, C):
 
     assert graph.has_edge(checkout.id, calculate_c.id)
     assert not graph.has_edge(checkout.id, calculate_a.id)
+
+
+def test_resolves_instance_method_call():
+    source = """
+class Cart:
+    def checkout(self):
+        return 100
+
+
+def process_order():
+    cart = Cart()
+    return cart.checkout()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    process = next(
+        fn for fn in functions
+        if fn.qualified_name == "process_order"
+    )
+
+    checkout = next(
+        fn for fn in functions
+        if fn.qualified_name == "Cart.checkout"
+    )
+
+    assert graph.has_edge(process.id, checkout.id)

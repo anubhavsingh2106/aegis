@@ -62,6 +62,49 @@ def find_calls(node, source: bytes) -> set[str]:
     return calls
 
 
+def find_local_types(node, source: bytes) -> dict[str, str]:
+    """Find simple local variables instantiated from classes."""
+
+    local_types = {}
+
+    def visit(current):
+        if current.type in {
+            "function_definition",
+            "class_definition",
+            "lambda",
+        }:
+            return
+
+        if current.type == "assignment":
+            left = current.child_by_field_name("left")
+            right = current.child_by_field_name("right")
+
+            if (
+                left is not None
+                and left.type == "identifier"
+                and right is not None
+                and right.type == "call"
+            ):
+                function_node = right.child_by_field_name("function")
+
+                if function_node is not None:
+                    class_name = get_call_name(
+                        function_node,
+                        source,
+                    )
+
+                    if class_name and "." not in class_name:
+                        local_types[text_of(left, source)] = class_name
+
+        for child in current.children:
+            visit(child)
+
+    if node is not None:
+        visit(node)
+
+    return local_types
+
+
 def resolve_relative_module(module: str, file: str) -> str:
     """Resolve a relative import using the importing file's path."""
 
@@ -182,7 +225,7 @@ def parse_python_module(
     source: str,
     file: str,
 ) -> tuple[list[FunctionSymbol], dict[str, str]]:
-    """Parse a Python module and retain its imports and class inheritance."""
+    """Parse a Python module and retain imports and class information."""
 
     encoded = source.encode("utf-8")
     tree = PARSER.parse(encoded)
@@ -199,7 +242,12 @@ def parse_python_module(
     def collect_classes(node):
         if node.type == "class_definition":
             name_node = node.child_by_field_name("name")
-            name = text_of(name_node, encoded) if name_node else "<class>"
+
+            name = (
+                text_of(name_node, encoded)
+                if name_node
+                else "<class>"
+            )
 
             bases_node = node.child_by_field_name("superclasses")
             bases = []
@@ -218,7 +266,6 @@ def parse_python_module(
 
     collect_classes(tree.root_node)
 
-    
     def c3_merge(sequences):
         sequences = [
             list(sequence)
@@ -319,7 +366,11 @@ def parse_python_module(
                         bases.append(base_name)
 
             for child in node.children:
-                visit(child, (*scope, name), tuple(bases))
+                visit(
+                    child,
+                    (*scope, name),
+                    tuple(bases),
+                )
 
             return
 
@@ -349,7 +400,10 @@ def parse_python_module(
                     source=text_of(node, encoded),
                     imports=module_imports.copy(),
                     class_bases=list(class_bases),
-                    class_mro=(get_class_mro(scope[-1]) or []) if scope else [],
+                    class_mro=(
+                        get_class_mro(scope[-1]) or []
+                    ) if scope else [],
+                    local_types=find_local_types(body, encoded),
                 )
             )
 

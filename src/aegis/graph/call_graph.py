@@ -143,7 +143,27 @@ def _resolve_call(
         return None
 
     # Resolve explicitly qualified calls.
+    # Resolve instance method calls.
     if "." in call:
+        receiver, method_name = call.split(".", 1)
+
+        class_name = caller.local_types.get(receiver)
+
+        if class_name is not None:
+            candidates = [
+                fn
+                for fn in by_qualified_name.get(
+                    f"{class_name}.{method_name}", []
+                )
+                if fn.file == caller.file
+            ]
+
+            target = _unique_target(candidates)
+
+            if target is not None:
+                return target
+
+        # Resolve explicitly qualified calls.
         return _unique_target(
             by_qualified_name.get(call, [])
         )
