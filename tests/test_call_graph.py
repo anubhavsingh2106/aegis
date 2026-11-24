@@ -575,3 +575,34 @@ def process_order():
     )
 
     assert graph.has_edge(process.id, checkout.id)
+
+def test_resolves_inherited_instance_method_call():
+    source = """
+class BaseCart:
+    def calculate(self):
+        return 100
+
+
+class Cart(BaseCart):
+    pass
+
+
+def process_order():
+    cart = Cart()
+    return cart.calculate()
+"""
+
+    functions = parse_python_source(source, "shop.py")
+    graph = build_call_graph(functions)
+
+    process = next(
+        fn for fn in functions
+        if fn.qualified_name == "process_order"
+    )
+
+    calculate = next(
+        fn for fn in functions
+        if fn.qualified_name == "BaseCart.calculate"
+    )
+
+    assert graph.has_edge(process.id, calculate.id)

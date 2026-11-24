@@ -345,6 +345,12 @@ def parse_python_module(
 
         return merged.copy()
 
+    # Calculate MRO for every class, including classes without methods.
+    class_mros = {
+        name: get_class_mro(name) or []
+        for name in class_hierarchy
+    }
+
     def visit(node, scope=(), class_bases=()):
         if node.type == "class_definition":
             name_node = node.child_by_field_name("name")
@@ -404,6 +410,7 @@ def parse_python_module(
                         get_class_mro(scope[-1]) or []
                     ) if scope else [],
                     local_types=find_local_types(body, encoded),
+                    class_mros=class_mros.copy(),
                 )
             )
 

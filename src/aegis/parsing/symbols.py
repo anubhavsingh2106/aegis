@@ -15,6 +15,7 @@ class FunctionSymbol:
     class_bases: list[str] = field(default_factory=list)
     class_mro: list[str] = field(default_factory=list)
     local_types: dict[str, str] = field(default_factory=dict)
+    class_mros: dict[str, list[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
