@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from aegis.git_analysis.diff import run_git
+from aegis.verification.failure_parser import parse_pytest_failures
 from aegis.verification.interface import TestRunner
 from aegis.verification.policy import ExecutionMode, select_runner
 
@@ -258,11 +259,25 @@ def compare_revisions(
         }
 
     if test_ids is None:
-        baseline = runner.run(repo, base)
-        changed = runner.run(repo, head)
+        baseline_result = runner.run(repo, base)
+        changed_result = runner.run(repo, head)
     else:
-        baseline = runner.run(repo, base, test_ids)
-        changed = runner.run(repo, head, test_ids)
+        baseline_result = runner.run(repo, base, test_ids)
+        changed_result = runner.run(repo, head, test_ids)
+
+    baseline = {
+        **baseline_result,
+        "failures": parse_pytest_failures(
+            baseline_result.get("stdout", "")
+        ),
+    }
+
+    changed = {
+        **changed_result,
+        "failures": parse_pytest_failures(
+            changed_result.get("stdout", "")
+        ),
+    }
 
     regression = (
         baseline.get("status") == "passed"

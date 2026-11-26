@@ -10,6 +10,7 @@ from aegis.ai.outbound import (
 )
 from aegis.graph.impact import analyze_impact
 from aegis.verification.docker_runner import compare_revisions
+from aegis.verification.regression_analysis import correlate_failures
 
 
 def main() -> None:
@@ -157,6 +158,10 @@ def main() -> None:
                     test_ids=candidate_test_ids,
                 )
 
+            report["regression_analysis"] = correlate_failures(
+                        report,
+                        report["verification"],
+            )
         output = Path(args.output).resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(
