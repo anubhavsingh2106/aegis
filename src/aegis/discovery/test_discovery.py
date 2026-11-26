@@ -2,6 +2,15 @@
 import networkx as nx
 
 
+def to_pytest_node_id(test_data: dict) -> str:
+    """Convert parsed function metadata into a pytest node ID."""
+
+    file = test_data["file"].replace("\\", "/")
+    qualified_name = test_data["qualified_name"]
+
+    return f"{file}::{qualified_name.replace('.', '::')}"
+
+
 def discover_tests(
     graph: nx.DiGraph,
     test_functions: dict,
@@ -50,6 +59,7 @@ def discover_tests(
             {
                 **test_data,
                 "id": test_id,
+                "pytest_node_id": to_pytest_node_id(test_data),
                 "distance": shortest_distance,
                 "score": score,
                 "reason": reason,

@@ -15,7 +15,10 @@ def run_pytest_in_docker(
     revision: str,
     image: str = "aegis-test-runner:local",
     timeout: int = 60,
+    test_ids: list[str] | None = None,
 ) -> dict[str, Any]:
+    """Run the selected pytest tests inside the Docker sandbox."""
+
     repo_path = Path(repo).resolve()
 
     try:
@@ -106,7 +109,16 @@ def run_pytest_in_docker(
             "--workdir",
             "/workspace",
             image,
+            "python",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
         ]
+
+        if test_ids is not None:
+            command.extend(test_ids)
 
         try:
             result = subprocess.run(
@@ -123,6 +135,7 @@ def run_pytest_in_docker(
                 "exit_code": None,
                 "stdout": exc.stdout or "",
                 "stderr": exc.stderr or "",
+                "test_ids": test_ids,
             }
         except OSError as exc:
             return {
@@ -131,6 +144,7 @@ def run_pytest_in_docker(
                 "exit_code": None,
                 "stdout": "",
                 "stderr": str(exc),
+                "test_ids": test_ids,
             }
 
         stdout = result.stdout or ""
@@ -177,8 +191,8 @@ def run_pytest_in_docker(
             "exit_code": result.returncode,
             "stdout": stdout,
             "stderr": stderr,
+            "test_ids": test_ids,
         }
-
 
 
 def compare_revisions(
@@ -191,7 +205,21 @@ def compare_revisions(
     docker_runner: TestRunner | None = None,
     remote_runner: TestRunner | None = None,
     native_runner: TestRunner | None = None,
+    test_ids: list[str] | None = None,
 ) -> dict[str, Any]:
+    """Compare test results between baseline and changed revisions."""
+
+    if test_ids is not None and not test_ids:
+        return {
+            "baseline": None,
+            "changed": None,
+            "status": "verification_skipped",
+            "regression_detected": False,
+            "execution_mode": mode,
+            "test_ids": [],
+            "reason": "No candidate tests were discovered.",
+        }
+
     try:
         runner = select_runner(
             mode,
@@ -208,12 +236,14 @@ def compare_revisions(
             "stdout": "",
             "stderr": str(exc),
         }
+
         return {
             "baseline": failure.copy(),
             "changed": failure.copy(),
             "status": "inconclusive",
             "regression_detected": False,
             "execution_mode": mode,
+            "test_ids": test_ids,
         }
 
     if runner is None:
@@ -223,11 +253,16 @@ def compare_revisions(
             "status": "verification_skipped",
             "regression_detected": False,
             "execution_mode": mode,
+            "test_ids": test_ids,
             "reason": "Analysis-only mode; no tests were executed.",
         }
 
-    baseline = runner.run(repo, base)
-    changed = runner.run(repo, head)
+    if test_ids is None:
+        baseline = runner.run(repo, base)
+        changed = runner.run(repo, head)
+    else:
+        baseline = runner.run(repo, base, test_ids)
+        changed = runner.run(repo, head, test_ids)
 
     regression = (
         baseline.get("status") == "passed"
@@ -250,4 +285,5 @@ def compare_revisions(
         "status": status,
         "regression_detected": regression,
         "execution_mode": mode,
+        "test_ids": test_ids,
     }

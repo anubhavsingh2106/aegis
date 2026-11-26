@@ -84,6 +84,14 @@ def test_analyze_impact_discovers_and_ranks_candidate_tests(tmp_path):
         "Direct dependency on a changed function"
     )
 
+    assert candidates[0]["pytest_node_id"] == (
+        "tests/test_pricing.py::test_direct"
+    )
+
+    assert candidates[1]["pytest_node_id"] == (
+        "tests/test_pricing.py::test_indirect"
+    )
+
     assert "Indirect dependency" in candidates[1]["reason"]
 
     assert all(

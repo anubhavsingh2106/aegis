@@ -143,12 +143,18 @@ def main() -> None:
 
                     native_runner = NativeRunner()
 
+                candidate_test_ids = [
+                    candidate["pytest_node_id"]
+                    for candidate in report.get("candidate_tests", [])
+                ]
+
                 report["verification"] = compare_revisions(
                     args.repo,
                     args.base,
                     mode=mode,
                     trusted_repository=args.trust_repo,
                     native_runner=native_runner,
+                    test_ids=candidate_test_ids,
                 )
 
         output = Path(args.output).resolve()

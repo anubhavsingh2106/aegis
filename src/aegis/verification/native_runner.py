@@ -40,6 +40,7 @@ def run_pytest_natively(
     repo: str,
     revision: str,
     timeout: int = 60,
+    test_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Run pytest locally for a trusted repository. This is not a sandbox."""
     repo_path = Path(repo).resolve()
@@ -111,6 +112,9 @@ def run_pytest_natively(
             "no:cacheprovider",
         ]
 
+        if test_ids is not None:
+            command.extend(test_ids)
+
         try:
             result = subprocess.run(
                 command,
@@ -157,9 +161,15 @@ class NativeRunner:
     def __init__(self, timeout: int = 60) -> None:
         self.timeout = timeout
 
-    def run(self, repo: str, revision: str) -> dict[str, Any]:
+    def run(
+        self,
+        repo: str,
+        revision: str,
+        test_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
         return run_pytest_natively(
             repo,
             revision,
             timeout=self.timeout,
+            test_ids=test_ids,
         )

@@ -76,7 +76,6 @@ def analyze_impact(repo: str, base: str, head: str = "HEAD") -> dict:
         fn.id: fn.to_dict()
         for fn in functions
         if fn.name.startswith("test_")
-        or "/tests/" in f"/{fn.file}"
     }
 
     candidate_tests = discover_tests(
