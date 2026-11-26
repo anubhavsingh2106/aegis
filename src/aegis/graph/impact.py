@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from aegis.discovery.test_discovery import discover_tests
 from aegis.git_analysis.diff import analyze_diff
 from aegis.graph.call_graph import build_call_graph, find_affected_callers
 from aegis.parsing.python_parser import parse_python_module
@@ -71,6 +72,19 @@ def analyze_impact(repo: str, base: str, head: str = "HEAD") -> dict:
 
     by_id = {fn.id: fn for fn in functions}
 
+    test_functions = {
+        fn.id: fn.to_dict()
+        for fn in functions
+        if fn.name.startswith("test_")
+        or "/tests/" in f"/{fn.file}"
+    }
+
+    candidate_tests = discover_tests(
+        graph,
+        test_functions,
+        changed_functions,
+    )
+
     return {
         "repository": str(repo_path),
         "base_revision": diff["base_revision"],
@@ -84,12 +98,7 @@ def analyze_impact(repo: str, base: str, head: str = "HEAD") -> dict:
             by_id[symbol_id].to_dict()
             for symbol_id in affected
         ],
-        "candidate_tests": [
-            by_id[symbol_id].to_dict()
-            for symbol_id in affected
-            if by_id[symbol_id].name.startswith("test_")
-            or "/tests/" in f"/{by_id[symbol_id].file}"
-        ],
+        "candidate_tests": candidate_tests,
         "graph": {
             "nodes": [
                 {"id": fn.id, "file": fn.file, "name": fn.name}
